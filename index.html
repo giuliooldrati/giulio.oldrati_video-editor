@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Giulio Oldrati — Video Editor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Hanken+Grotesk:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400;1,6..72,500&display=swap" rel="stylesheet" />
+<style>
+/* ============ TOKENS ============ */
+:root{
+  --bg:#0A0A0C;
+  --bg-2:#101016;
+  --bg-3:#16161D;
+  --ink:#F6F7F8;
+  --muted:#8B9099;
+  --line:rgba(255,255,255,.11);
+  --line-2:rgba(255,255,255,.06);
+  --accent:#2E7DFF;          /* blu acceso */
+  --accent-2:#FFD400;        /* giallo */
+  --accent-soft:#5C9BFF;
+  --accent-ink:#07080A;
+  --font-display:'Bebas Neue', sans-serif;
+  --font-serif:'Newsreader', serif;
+  --font-body:'Hanken Grotesk', sans-serif;
+  --ease:cubic-bezier(.2,.8,.2,1);
+  --ease-out:cubic-bezier(.16,1,.3,1);
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--font-body);
+  font-size:17px;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+::selection{background:var(--accent-2);color:#07080A}
+a{color:inherit;text-decoration:none}
+img{display:block;max-width:100%}
+
+/* film grain + vignette overlay */
+.fx{position:fixed;inset:0;pointer-events:none;z-index:90}
+.fx::before{
+  content:"";position:absolute;inset:-50%;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  opacity:.05;animation:grain 6s steps(6) infinite;
+}
+.fx::after{
+  content:"";position:absolute;inset:0;
+  background:radial-gradient(120% 90% at 50% 18%, transparent 45%, rgba(0,0,0,.55) 100%);
+}
+@keyframes grain{
+  0%{transform:translate(0,0)}10%{transform:translate(-4%,-3%)}30%{transform:translate(3%,-5%)}
+  50%{transform:translate(-3%,4%)}70%{transform:translate(4%,3%)}90%{transform:translate(-2%,-4%)}100%{transform:translate(0,0)}
+}
+
+.wrap{max-width:1320px;margin:0 auto;padding:0 clamp(22px,5vw,64px)}
+
+/* ============ TOPBAR ============ */
+.topbar{
+  position:fixed;top:0;left:0;right:0;z-index:80;
+  display:flex;align-items:center;justify-content:flex-end;
+  padding:24px clamp(22px,5vw,64px);
+  mix-blend-mode:difference;
+}
+.topbar .mark{
+  font-family:var(--font-display);font-size:22px;letter-spacing:.14em;color:#fff;
+  display:flex;align-items:center;gap:11px;
+}
+.topbar .mark b{
+  display:grid;place-items:center;width:30px;height:30px;border-radius:50%;
+  background:#fff;color:#000;font-size:18px;line-height:1;padding-top:2px;
+}
+.topnav{display:flex;gap:clamp(22px,3vw,40px);align-items:center}
+.topnav a{
+  font-size:16px;letter-spacing:.1em;text-transform:uppercase;color:#fff;white-space:nowrap;
+  font-weight:600;font-family:var(--font-body);position:relative;padding-bottom:4px;
+}
+.topnav a::after{content:"";position:absolute;left:0;bottom:0;width:0;height:1px;background:#fff;transition:width .4s var(--ease)}
+.topnav a:hover::after{width:100%}
+@media(max-width:820px){.topnav{display:none}}
+
+/* ============ HERO ============ */
+.hero{
+  position:relative;min-height:100svh;display:grid;
+  grid-template-columns:minmax(260px,33%) 1fr;align-items:center;
+  padding-top:80px;
+}
+.hero::before{ /* warm radial behind stage */
+  content:"";position:absolute;right:-10%;top:50%;transform:translateY(-50%);
+  width:70vw;height:70vw;max-width:1100px;max-height:1100px;border-radius:50%;
+  background:radial-gradient(circle, color-mix(in srgb,var(--accent) 16%, transparent) 0%, transparent 60%);
+  filter:blur(20px);z-index:0;pointer-events:none;
+}
+
+/* identity block */
+.identity{position:relative;z-index:5;padding-left:clamp(22px,5vw,64px);padding-right:24px}
+.id-circle{
+  width:120px;height:120px;border-radius:50%;background:var(--ink);
+  display:grid;place-items:center;color:#000;font-family:var(--font-display);
+  font-size:74px;line-height:1;padding-top:6px;
+  box-shadow:0 20px 60px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.5) inset;
+  transition:opacity .9s var(--ease-out),transform .9s var(--ease-out);
+}
+.id-name{
+  font-family:var(--font-display);font-size:clamp(46px,5.2vw,74px);line-height:.92;
+  letter-spacing:.01em;margin-top:26px;color:var(--ink);
+  transition:opacity .9s .08s var(--ease-out),transform .9s .08s var(--ease-out);
+}
+.id-role{
+  display:flex;align-items:center;gap:12px;margin-top:16px;color:#C7CBD2;
+  font-size:16px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;
+  transition:opacity .9s .16s var(--ease-out),transform .9s .16s var(--ease-out);
+}
+.id-role .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent)}
+.id-bio{
+  font-family:var(--font-serif);font-size:22px;line-height:1.5;color:#D7DAE0;
+  max-width:32ch;margin-top:22px;font-style:italic;
+  transition:opacity .9s .24s var(--ease-out),transform .9s .24s var(--ease-out);
+}
+.cta-pill{
+  display:inline-flex;align-items:center;gap:13px;margin-top:34px;
+  padding:18px 34px 18px 36px;border-radius:100px;
+  background:var(--accent-2);color:#0A0A0C;
+  font-weight:800;font-size:16.5px;letter-spacing:.06em;text-transform:uppercase;
+  border:1px solid var(--accent-2);
+  transition:transform .4s var(--ease), box-shadow .4s var(--ease), background .3s, opacity .9s .32s var(--ease-out);
+  box-shadow:0 14px 40px color-mix(in srgb,var(--accent-2) 48%, transparent);
+}
+.cta-pill svg{width:17px;height:17px;transition:transform .4s var(--ease)}
+.cta-pill:hover{transform:translateY(-3px);box-shadow:0 20px 52px color-mix(in srgb,var(--accent-2) 62%, transparent)}
+.cta-pill:hover svg{transform:translate(3px,-3px)}
+
+/* preload hidden states — base is the VISIBLE state, so content always shows */
+.preload .id-circle,.preload .id-name,.preload .id-role,.preload .id-bio,.preload .scroll-cue{opacity:0;transform:translateY(26px)}
+.preload .cta-pill{opacity:0}
+.preload .screen{opacity:0 !important;transform:var(--rest) translateY(70px) !important}
+
+/* stage with fanned screens */
+.stage-wrap{position:relative;z-index:2;height:100%;display:grid;place-items:center}
+.stage{
+  position:relative;width:100%;height:min(82svh,720px);
+  perspective:1700px;perspective-origin:50% 46%;
+}
+.screen{
+  position:absolute;left:50%;top:50%;
+  width:min(42vw,500px);aspect-ratio:16/10;
+  margin-left:calc(min(42vw,500px) / -2);
+  margin-top:calc(min(42vw,500px) * 0.625 / -2);
+  border:0;padding:0;background:none;cursor:pointer;
+  transform-style:preserve-3d;
+  transform:var(--rest);
+  transition:transform .8s var(--ease), filter .6s var(--ease), opacity .6s var(--ease);
+  transition-delay:var(--delay,0s);
+  border-radius:14px;
+}
+
+.screen-inner{
+  position:absolute;inset:0;border-radius:14px;overflow:hidden;
+  transform-style:preserve-3d;
+  box-shadow:0 40px 90px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.07) inset;
+  transition:transform .3s var(--ease-out);
+}
+.screen-inner.float{animation:float 7s ease-in-out infinite;animation-delay:var(--delay)}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
+
+/* abstract media backgrounds */
+.screen-media{
+  position:absolute;inset:0;
+  display:grid;place-items:center;text-align:center;
+  background:
+    repeating-linear-gradient(45deg, rgba(255,255,255,.02) 0 14px, transparent 14px 28px),
+    var(--media-bg, linear-gradient(150deg,#1b1b22,#101015));
+  color:rgba(244,241,234,.5);
+}
+/* soft drifting light blooms over the gradient */
+.screen-media::after{
+  content:"";position:absolute;inset:-12%;
+  background:var(--media-glow, none);
+  mix-blend-mode:screen;opacity:.9;filter:blur(2px);
+  pointer-events:none;
+}
+.ph-label{
+  font-size:11px;letter-spacing:.18em;text-transform:uppercase;font-weight:600;
+  border:1px dashed rgba(244,241,234,.32);border-radius:8px;padding:9px 14px;
+  background:rgba(0,0,0,.28);backdrop-filter:blur(2px);
+}
+.screen-glass{
+  position:absolute;inset:0;
+  background:linear-gradient(to top, rgba(0,0,0,.86) 6%, rgba(0,0,0,.28) 42%, rgba(0,0,0,.05) 70%);
+}
+.screen.s-servizi .screen-media{
+  --media-bg:
+    radial-gradient(120% 85% at 16% 16%, rgba(58,138,255,.60), transparent 60%),
+    radial-gradient(95% 90% at 90% 20%, rgba(156,200,255,.30), transparent 55%),
+    radial-gradient(130% 130% at 80% 95%, rgba(6,14,36,.92), transparent 60%),
+    linear-gradient(150deg, #0b1832 0%, #070b1a 60%, #05080f 100%);
+  --media-glow:
+    radial-gradient(36% 30% at 30% 38%, rgba(120,180,255,.22), transparent 70%),
+    radial-gradient(30% 26% at 72% 30%, rgba(255,212,0,.10), transparent 70%);
+}
+.screen.s-about .screen-media{
+  --media-bg:
+    radial-gradient(100% 90% at 82% 14%, rgba(255,212,0,.16), transparent 52%),
+    radial-gradient(125% 100% at 10% 26%, rgba(46,125,255,.52), transparent 60%),
+    radial-gradient(130% 130% at 72% 96%, rgba(5,11,28,.94), transparent 60%),
+    linear-gradient(162deg, #0c1228 0%, #080b18 100%);
+  --media-glow:
+    radial-gradient(34% 30% at 22% 32%, rgba(90,160,255,.20), transparent 72%),
+    radial-gradient(26% 22% at 78% 22%, rgba(255,212,0,.14), transparent 72%);
+}
+.screen.contact .screen-media{
+  --media-bg:
+    radial-gradient(120% 110% at 22% 16%, rgba(46,125,255,.72), transparent 58%),
+    radial-gradient(100% 100% at 86% 78%, rgba(8,20,52,.94), transparent 55%),
+    linear-gradient(140deg, #0e1c40 0%, #060a16 100%);
+  --media-glow:
+    radial-gradient(40% 34% at 30% 28%, rgba(120,190,255,.24), transparent 72%);
+  color:rgba(255,255,255,.7);
+}
+.screen-content{
+  position:absolute;left:0;right:0;bottom:0;padding:34px 38px;z-index:3;text-align:left;
+}
+.screen-kicker{
+  display:inline-flex;align-items:center;gap:9px;
+  font-size:12.5px;letter-spacing:.2em;text-transform:uppercase;font-weight:700;
+  color:var(--accent-2);margin-bottom:11px;
+}
+.screen-kicker .bar{width:24px;height:2px;background:var(--accent-2)}
+.screen-title{
+  font-family:var(--font-display);font-size:clamp(34px,4vw,60px);line-height:.94;
+  letter-spacing:.01em;color:#fff;
+}
+.screen-sub{
+  font-family:var(--font-serif);font-style:italic;color:#DADCE2;
+  font-size:17.5px;margin-top:9px;letter-spacing:.01em;
+}
+.screen-open{
+  position:absolute;top:20px;right:22px;z-index:3;
+  display:flex;align-items:center;gap:8px;
+  font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#fff;
+  opacity:0;transform:translateY(-6px);transition:opacity .4s var(--ease),transform .4s var(--ease);
+}
+.screen-open .ring{
+  width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.4);
+  display:grid;place-items:center;
+}
+.screen-edge{ /* accent edge that lights on hover */
+  position:absolute;inset:0;border-radius:14px;pointer-events:none;
+  box-shadow:0 0 0 1px transparent inset;transition:box-shadow .4s var(--ease);
+}
+
+/* stacking order: SERVIZI front, then PARLO, then CONTATTI back */
+.screen.s-servizi{z-index:3}
+.screen.s-about{z-index:2}
+.screen.contact{z-index:1}
+
+/* hover / active interaction (pure CSS) */
+.stage:hover .screen{filter:brightness(.5) saturate(.7);opacity:.78}
+.screen:hover,.screen:focus-visible{
+  transform:translate3d(0,-2%,200px) rotateY(0deg) rotateZ(0deg) scale(1.07) !important;
+  transition-delay:0s;
+  filter:none !important;opacity:1 !important;z-index:40 !important;outline:none;
+}
+.screen:hover .screen-inner,.screen:focus-visible .screen-inner{
+  box-shadow:0 60px 120px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.12) inset;
+  animation-play-state:paused;
+}
+.screen:hover .screen-edge,.screen:focus-visible .screen-edge{
+  box-shadow:0 0 0 1.5px color-mix(in srgb,var(--accent) 75%, transparent) inset,
+             0 0 34px color-mix(in srgb,var(--accent) 30%, transparent);
+}
+.screen:hover .screen-open,.screen:focus-visible .screen-open{opacity:1;transform:none}
+.screen:hover .screen-glass,.screen:focus-visible .screen-glass{
+  background:linear-gradient(to top, rgba(0,0,0,.72) 4%, rgba(0,0,0,.12) 46%, transparent 72%);
+}
+
+.scroll-cue{
+  position:absolute;left:50%;bottom:26px;transform:translateX(-50%);z-index:6;
+  display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--muted);
+  font-size:10.5px;letter-spacing:.24em;text-transform:uppercase;font-weight:600;
+  transition:opacity .9s .5s var(--ease-out),transform .9s .5s var(--ease-out);
+}
+.scroll-cue .line{width:1px;height:34px;background:linear-gradient(var(--muted),transparent);position:relative;overflow:hidden}
+.scroll-cue .line::after{content:"";position:absolute;top:-50%;left:0;width:100%;height:50%;background:var(--accent);animation:cue 1.8s var(--ease) infinite}
+@keyframes cue{0%{top:-50%}60%,100%{top:120%}}
+
+/* ============ SECTION SHELL ============ */
+section[id]{position:relative;padding:clamp(90px,12vh,150px) 0;scroll-margin-top:40px}
+.sec-head{display:flex;align-items:flex-end;justify-content:space-between;gap:30px;margin-bottom:64px;flex-wrap:wrap}
+.sec-index{font-family:var(--font-display);font-size:15px;letter-spacing:.2em;color:var(--accent)}
+.sec-kicker{
+  display:flex;align-items:center;gap:12px;color:var(--muted);
+  font-size:12px;letter-spacing:.22em;text-transform:uppercase;font-weight:600;margin-bottom:18px;
+}
+.sec-kicker .bar{width:34px;height:1px;background:var(--accent)}
+.sec-title{font-family:var(--font-display);font-size:clamp(48px,8vw,118px);line-height:.9;letter-spacing:.005em}
+.sec-title .accent{color:var(--accent-2)}
+.sec-note{max-width:34ch;color:var(--muted);font-size:15.5px;font-family:var(--font-serif);font-style:italic}
+
+/* reveal */
+.reveal{opacity:0;transform:translateY(34px);transition:opacity .9s var(--ease-out),transform .9s var(--ease-out)}
+.reveal.in{opacity:1;transform:none}
+
+/* ============ SERVIZI ============ */
+#servizi{border-top:1px solid var(--line-2)}
+.services{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--line-2);border:1px solid var(--line-2);border-radius:18px;overflow:hidden}
+.svc{
+  background:var(--bg);padding:42px 40px 46px;position:relative;
+  transition:background .5s var(--ease);min-height:300px;display:flex;flex-direction:column;
+}
+.svc:hover{background:var(--bg-2)}
+.svc-no{font-family:var(--font-display);font-size:15px;letter-spacing:.16em;color:var(--muted);transition:color .4s}
+.svc:hover .svc-no{color:var(--accent-2)}
+.svc-ico{margin:22px 0 24px;width:46px;height:46px;color:var(--accent)}
+.svc-ico svg{width:100%;height:100%;stroke:currentColor;stroke-width:1.4;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.svc h3{font-family:var(--font-display);font-size:clamp(26px,2.6vw,36px);line-height:.98;letter-spacing:.01em;color:var(--ink)}
+.svc p{margin-top:13px;color:var(--muted);font-size:15px;line-height:1.62;max-width:42ch;text-wrap:pretty}
+.svc .arrow{margin-top:auto;padding-top:26px;color:var(--ink);opacity:.0;transform:translateX(-8px);transition:opacity .4s var(--ease),transform .4s var(--ease);font-size:13px;letter-spacing:.14em;text-transform:uppercase;font-weight:600}
+.svc:hover .arrow{opacity:.7;transform:none}
+@media(max-width:720px){.services{grid-template-columns:1fr}}
+
+/* ============ PARLO DI ME ============ */
+#chisono{border-top:1px solid var(--line-2)}
+.about{display:grid;grid-template-columns:0.85fr 1.15fr;gap:clamp(40px,6vw,90px);align-items:center}
+.portrait{
+  position:relative;aspect-ratio:4/5;border-radius:16px;overflow:hidden;
+  background:linear-gradient(160deg,#16161d,#0c0c10);
+  display:grid;place-items:center;border:1px solid var(--line);
+}
+.portrait img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 16%}
+.portrait::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.34) 0%,transparent 24%,transparent 70%,rgba(0,0,0,.5) 100%);pointer-events:none}
+.portrait .frame-tag{position:absolute;top:16px;left:16px;z-index:2;font-family:var(--font-display);font-size:16px;letter-spacing:.16em;color:var(--accent-2);display:flex;align-items:center;gap:8px}
+.portrait .frame-tag .rec{width:9px;height:9px;border-radius:50%;background:var(--accent-2);box-shadow:0 0 10px var(--accent-2);animation:rec 1.4s steps(1) infinite}
+@keyframes rec{50%{opacity:.2}}
+.portrait .frame-tag2{position:absolute;bottom:16px;right:18px;z-index:2;font-size:12px;letter-spacing:.18em;color:rgba(255,255,255,.72);text-transform:uppercase;font-weight:600}
+.about-body .workstation{
+  margin-bottom:30px;border:1px solid var(--line);border-radius:16px;overflow:hidden;
+  background:linear-gradient(160deg,#101017,#0a0a0e);padding:24px 26px 18px;position:relative;
+}
+.about-body .workstation svg{width:100%;height:auto;display:block}
+.about-body .ws-cap{display:flex;align-items:center;gap:10px;margin-top:14px;color:var(--muted);font-size:12.5px;letter-spacing:.16em;text-transform:uppercase;font-weight:600}
+.about-body .ws-cap::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent)}
+.about-body p.bio-text{font-size:19px;line-height:1.75;color:#D7DAE0;margin-bottom:24px;max-width:52ch}
+.about-body p.motto{font-family:var(--font-serif);font-style:italic;font-size:clamp(24px,3vw,34px);line-height:1.2;color:var(--accent-2);max-width:26ch;margin:0}
+@media(max-width:820px){.about{grid-template-columns:1fr}.portrait{max-width:420px}}
+
+/* ============ CONTATTI ============ */
+#contatti{border-top:1px solid var(--line-2);background:linear-gradient(180deg,var(--bg),#080A10)}
+.contact-lead{font-family:var(--font-display);font-size:clamp(54px,9vw,150px);line-height:.86;letter-spacing:.01em;margin-bottom:8px}
+.contact-lead .accent{color:var(--accent-2)}
+.contact-sub{font-family:var(--font-serif);font-style:italic;color:var(--muted);font-size:20px;margin-bottom:70px;max-width:40ch}
+.clinks{display:grid;gap:0;border-top:1px solid var(--line)}
+.clink{
+  display:flex;align-items:center;justify-content:space-between;gap:24px;
+  padding:34px 8px;border-bottom:1px solid var(--line);position:relative;overflow:hidden;
+}
+.clink .label{font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);font-weight:600;min-width:120px}
+.clink .val{font-family:var(--font-display);font-size:clamp(30px,5.5vw,72px);line-height:.95;letter-spacing:.01em;color:var(--ink);transition:transform .5s var(--ease),color .4s}
+.clink .go{width:54px;height:54px;border-radius:50%;border:1px solid var(--line);display:grid;place-items:center;color:var(--ink);transition:all .5s var(--ease);flex-shrink:0}
+.clink .go svg{width:20px;height:20px;transition:transform .5s var(--ease)}
+.clink::before{content:"";position:absolute;left:0;bottom:0;width:0;height:1px;background:var(--accent);transition:width .6s var(--ease)}
+.clink:hover::before{width:100%}
+.clink:hover .val{color:var(--accent);transform:translateX(14px)}
+.clink:hover .go{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.clink:hover .go svg{transform:translate(3px,-3px)}
+.contact-foot{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-top:80px;padding-top:30px;border-top:1px solid var(--line-2);color:var(--muted);font-size:13px;letter-spacing:.04em}
+.contact-foot .cta-pill{margin-top:0;animation:none}
+@media(max-width:620px){.clink{flex-wrap:wrap}.clink .go{order:3}}
+
+/* ============ MOBILE HERO ============ */
+@media(max-width:900px){
+  .hero{grid-template-columns:1fr;padding-top:120px;gap:30px;min-height:auto}
+  .identity{order:-1;padding-right:clamp(22px,5vw,64px);display:flex;flex-direction:column;align-items:flex-start}
+  .stage-wrap{height:auto}
+  .stage{height:auto;perspective:none;display:flex;flex-direction:column;gap:20px;padding:6px 0 40px}
+  .screen{position:relative;left:auto;top:auto;margin:0;width:100%;aspect-ratio:16/9;transform:none !important;z-index:auto !important}
+  .screen-inner.float{animation:none}
+  .stage:hover .screen{filter:none;opacity:1}
+  .screen:hover{transform:none !important}
+  .screen-edge{box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 26%, transparent) inset}
+  .screen-open{opacity:1;transform:none}
+  .scroll-cue{display:none}
+  .hero::before{display:none}
+}
+@media(prefers-reduced-motion:reduce){
+  *{animation:none !important}
+  html{scroll-behavior:auto}
+  .reveal{opacity:1;transform:none}
+}
+</style>
+<noscript><style>.preload .id-circle,.preload .id-name,.preload .id-role,.preload .id-bio,.preload .cta-pill,.preload .scroll-cue,.preload .screen{opacity:1!important;transform:var(--rest,none)!important}.reveal{opacity:1!important;transform:none!important}</style></noscript>
+</head>
+<body class="preload">
+<div class="fx"></div>
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <nav class="topnav">
+    <a href="#servizi">Servizi</a>
+    <a href="#chisono">Chi sono</a>
+    <a href="#contatti">Contatti</a>
+    <a href="https://goldrati.myportfolio.com/home" target="_blank" rel="noopener">Portfolio ↗</a>
+  </nav>
+</header>
+
+<!-- HERO -->
+<main id="top">
+<section class="hero" data-screen-label="Hero">
+  <!-- identity block -->
+  <div class="identity">
+    <div class="id-circle">G</div>
+    <h1 class="id-name">Giulio<br>Oldrati</h1>
+    <div class="id-role"><span class="dot"></span> Video Editor · Freelance</div>
+    <p class="id-bio">Ammaccabottoni dal 2020. 
+Montaggio, produzione e restauro video.</p>
+    <a class="cta-pill" href="https://goldrati.myportfolio.com/home" target="_blank" rel="noopener">
+      My portfolio
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg>
+    </a>
+  </div>
+
+  <!-- fanned screens -->
+  <div class="stage-wrap">
+    <div class="stage" id="stage">
+
+      <button class="screen s-servizi" data-target="#servizi" style="--rest:translate3d(16%,18%,56px) rotateY(10deg) rotateZ(2deg) scale(1);--delay:.15s" aria-label="Vai ai servizi">
+        <div class="screen-inner float" style="--delay:0s">
+          <div class="screen-media"></div>
+          <div class="screen-glass"></div>
+          <div class="screen-edge"></div>
+          <div class="screen-open"><span class="ring"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg></span></div>
+          <div class="screen-content">
+            <span class="screen-kicker"><span class="bar"></span> Reel 01</span>
+            <h3 class="screen-title">I miei servizi</h3>
+            <p class="screen-sub">Montaggio · Produzione · Restauro</p>
+          </div>
+        </div>
+      </button>
+
+      <button class="screen s-about" data-target="#chisono" style="--rest:translate3d(-22%,-2%,-28px) rotateY(14deg) scale(.92);--delay:.28s" aria-label="Vai a chi sono">
+        <div class="screen-inner float" style="--delay:1.2s">
+          <div class="screen-media"></div>
+          <div class="screen-glass"></div>
+          <div class="screen-edge"></div>
+          <div class="screen-open"><span class="ring"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg></span></div>
+          <div class="screen-content">
+            <span class="screen-kicker"><span class="bar"></span> Reel 02</span>
+            <h3 class="screen-title">Parlo di me</h3>
+            <p class="screen-sub">Dal 2020 dietro la timeline dei vostri progetti</p>
+          </div>
+        </div>
+      </button>
+
+      <button class="screen contact" data-target="#contatti" style="--rest:translate3d(-56%,-24%,-120px) rotateY(20deg) rotateZ(-2deg) scale(.85);--delay:.41s" aria-label="Vai ai contatti">
+        <div class="screen-inner float" style="--delay:2.4s">
+          <div class="screen-media"></div>
+          <div class="screen-glass"></div>
+          <div class="screen-edge"></div>
+          <div class="screen-open"><span class="ring"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg></span></div>
+          <div class="screen-content">
+            <span class="screen-kicker"><span class="bar"></span> Reel 03</span>
+            <h3 class="screen-title">Contatti</h3>
+            <p class="screen-sub">Iniziamo a lavorare insieme.</p>
+          </div>
+        </div>
+      </button>
+
+    </div>
+  </div>
+
+  <div class="scroll-cue"><span>Scorri</span><span class="line"></span></div>
+</section>
+
+<!-- SERVIZI -->
+<section id="servizi">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div>
+        <div class="sec-kicker"><span class="bar"></span> Cosa faccio</div>
+        <h2 class="sec-title">I miei <span class="accent">servizi</span></h2>
+      </div>
+      <p class="sec-note">&ldquo;Nessuno può impedire che una storia venga raccontata&rdquo; — Parnassus</p>
+    </div>
+
+    <div class="services reveal">
+      <article class="svc">
+        <span class="svc-no">01</span>
+        <div class="svc-ico"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 9h20M7 5v4M17 5v4M7 19v-4M17 19v-4M2 15h20"/></svg></div>
+        <h3>Montaggio video</h3>
+        <p>Hai le riprese e il materiale, ma un video non è ancora una storia. Qui entro io: taglio i tempi morti, costruisco il ritmo e tengo lo spettatore incollato fino all'ultimo frame.</p>
+        <div class="arrow">Timeline →</div>
+      </article>
+      <article class="svc">
+        <span class="svc-no">02</span>
+        <div class="svc-ico"><svg viewBox="0 0 24 24"><path d="m15 8 5-3v14l-5-3"/><rect x="2" y="6" width="13" height="12" rx="2"/></svg></div>
+        <h3>Produzione video</h3>
+        <p>Hai un'idea ma non sai da dove iniziare? Me ne occupo dall'inizio alla fine: concept, storyboard, riprese e post-produzione. Tu arrivi alla consegna,<br>al resto ci penso io.</p>
+        <div class="arrow">Set →</div>
+      </article>
+      <article class="svc">
+        <span class="svc-no">03</span>
+        <div class="svc-ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><circle cx="8" cy="11" r="2.4"/><circle cx="16" cy="11" r="2.4"/><path d="M3 20h18"/></svg></div>
+        <h3>Digitalizzazione VHS</h3>
+        <p>Le videocassette in soffitta le ricordi, ma il lettore VHS è rotto da anni — e dopo i 30 anni i nastri si deteriorano per sempre. Digitalizzale adesso e guardale quando vuoi, per sempre.</p>
+        <div class="arrow">Trasferisci →</div>
+      </article>
+      <article class="svc">
+        <span class="svc-no">04</span>
+        <div class="svc-ico"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/><path d="M9 12h6M12 9v6"/></svg></div>
+        <h3>Restauro clip storiche</h3>
+        <p>Hai video vecchi, sgranati o danneggiati che vorresti recuperare? Pulizia, stabilizzazione e correzione colore: riportare in vita filmati d'archivio è una delle cose che mi riesce meglio.</p>
+        <div class="arrow">Restaura →</div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- PARLO DI ME -->
+<section id="chisono">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div>
+        <div class="sec-kicker"><span class="bar"></span> Chi sono</div>
+        <h2 class="sec-title">Parlo <span class="accent">di me</span></h2>
+      </div>
+    </div>
+
+    <div class="about">
+      <div class="portrait reveal">
+        <img src="assets/giulio-portrait.jpg" alt="Ritratto di Giulio Oldrati con cuffie in studio" />
+        <span class="frame-tag"><span class="rec"></span> REC</span>
+        <span class="frame-tag2">
+</span>
+      </div>
+      <div class="about-body reveal">
+        <div class="workstation">
+          <svg viewBox="0 0 560 250" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Postazione di montaggio video">
+            <rect x="24" y="190" width="512" height="13" rx="6" fill="#14141B" stroke="rgba(255,255,255,.14)" stroke-width="1.5"/>
+            <rect x="92" y="203" width="7" height="34" fill="#14141B" stroke="rgba(255,255,255,.10)"/>
+            <rect x="461" y="203" width="7" height="34" fill="#14141B" stroke="rgba(255,255,255,.10)"/>
+            <!-- left monitor : preview -->
+            <rect x="76" y="34" width="196" height="124" rx="8" fill="#0D0E14" stroke="rgba(255,255,255,.55)" stroke-width="2"/>
+            <rect x="88" y="46" width="172" height="88" rx="3" fill="#0A1124"/>
+            <circle cx="174" cy="90" r="20" stroke="#FFD400" stroke-width="2.5"/>
+            <path d="M168 80 L188 90 L168 100 Z" fill="#FFD400"/>
+            <rect x="166" y="158" width="16" height="20" fill="#14141B" stroke="rgba(255,255,255,.4)" stroke-width="2"/>
+            <rect x="146" y="178" width="56" height="8" rx="3" fill="#14141B" stroke="rgba(255,255,255,.4)" stroke-width="2"/>
+            <!-- right monitor : timeline -->
+            <rect x="288" y="50" width="212" height="108" rx="8" fill="#0D0E14" stroke="rgba(255,255,255,.55)" stroke-width="2"/>
+            <rect x="300" y="60" width="188" height="32" rx="2" fill="#0A1124"/>
+            <rect x="300" y="100" width="64" height="10" rx="2" fill="#2E7DFF"/>
+            <rect x="370" y="100" width="42" height="10" rx="2" fill="#FFD400"/>
+            <rect x="418" y="100" width="70" height="10" rx="2" fill="rgba(255,255,255,.5)"/>
+            <rect x="300" y="116" width="94" height="10" rx="2" fill="rgba(255,255,255,.3)"/>
+            <rect x="400" y="116" width="48" height="10" rx="2" fill="#2E7DFF"/>
+            <rect x="452" y="116" width="36" height="10" rx="2" fill="#FFD400"/>
+            <rect x="300" y="132" width="52" height="10" rx="2" fill="#FFD400"/>
+            <rect x="358" y="132" width="130" height="10" rx="2" fill="rgba(255,255,255,.22)"/>
+            <line x1="384" y1="96" x2="384" y2="146" stroke="#fff" stroke-width="2"/>
+            <circle cx="384" cy="96" r="3" fill="#fff"/>
+            <rect x="386" y="158" width="16" height="20" fill="#14141B" stroke="rgba(255,255,255,.4)" stroke-width="2"/>
+            <rect x="366" y="178" width="56" height="8" rx="3" fill="#14141B" stroke="rgba(255,255,255,.4)" stroke-width="2"/>
+            <!-- keyboard + mouse -->
+            <rect x="198" y="192" width="150" height="9" rx="2" fill="#14141B" stroke="rgba(255,255,255,.3)"/>
+            <rect x="358" y="192" width="20" height="10" rx="5" fill="#14141B" stroke="rgba(255,255,255,.3)"/>
+            <!-- pc tower -->
+            <rect x="508" y="142" width="34" height="48" rx="4" fill="#0D0E14" stroke="rgba(255,255,255,.45)" stroke-width="2"/>
+            <line x1="514" y1="150" x2="536" y2="150" stroke="rgba(255,255,255,.3)"/>
+            <line x1="514" y1="156" x2="536" y2="156" stroke="rgba(255,255,255,.3)"/>
+            <circle cx="525" cy="182" r="3" fill="#2E7DFF"/>
+          </svg>
+        </div>
+        <p class="bio-text">Faccio il video editor freelance dal 2020. Il movimento è il mio motore. Raccontare storie tramite il linguaggio video con sempre un pizzico di ironia è il mio moto perpetuo.</p>
+        <p class="motto">And there&rsquo;s always music in the air</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CONTATTI -->
+<section id="contatti">
+  <div class="wrap">
+    <div class="reveal">
+      <div class="sec-kicker">
+</div>
+      <h2 class="contact-lead">Iniziamo a<br><span class="accent">lavorare insieme.</span></h2>
+      <p class="contact-sub">Un'idea, un nastro da salvare o un progetto intero: scrivimi o chiamami.</p>
+    </div>
+
+    <div class="clinks reveal">
+      <a class="clink" href="tel:+393914769619">
+        <span class="label">Telefono</span>
+        <span class="val">+39 391 476 9619</span>
+        <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
+      </a>
+      <a class="clink" href="mailto:info@goldrati.it">
+        <span class="label">Email</span>
+        <span class="val">info@goldrati.it</span>
+        <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
+      </a>
+    </div>
+
+    <div class="contact-foot">
+      <span>© 2026 Giulio Oldrati — Video Editor</span>
+      <a class="cta-pill" href="https://goldrati.myportfolio.com/home" target="_blank" rel="noopener">
+        Vedi il portfolio
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg>
+      </a>
+    </div>
+  </div>
+</section>
+</main>
+
+<script>
+(function(){
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* reveal hero entrance (base state is visible, so content shows even if this never runs) */
+  requestAnimationFrame(function(){
+    requestAnimationFrame(function(){ document.body.classList.remove('preload'); });
+  });
+  window.addEventListener('load', function(){ document.body.classList.remove('preload'); });
+
+  /* safety: guarantee hero content is visible even if entrance transitions never tick */
+  setTimeout(function(){
+    document.body.classList.remove('preload');
+    var st = document.createElement('style');
+    st.textContent = '.id-circle,.id-name,.id-role,.id-bio,.cta-pill,.scroll-cue{opacity:1!important;transform:none!important}.screen{opacity:1!important}';
+    document.head.appendChild(st);
+  }, 1500);
+
+  /* screens: click to scroll to section */
+  document.querySelectorAll('.screen').forEach(function(s){
+    var target = s.getAttribute('data-target');
+    s.addEventListener('click', function(){
+      var el = document.querySelector(target);
+      if(el) el.scrollIntoView({behavior: reduce ? 'auto' : 'smooth', block:'start'});
+    });
+  });
+
+  /* pointer tilt parallax on hovered screen (desktop) */
+  var fine = window.matchMedia('(hover:hover) and (pointer:fine)').matches;
+  if(fine && !reduce){
+    document.querySelectorAll('.screen').forEach(function(s){
+      var inner = s.querySelector('.screen-inner');
+      s.addEventListener('pointermove', function(e){
+        var r = s.getBoundingClientRect();
+        var px = (e.clientX - r.left)/r.width - .5;
+        var py = (e.clientY - r.top)/r.height - .5;
+        inner.style.transform = 'rotateY('+(px*10)+'deg) rotateX('+(-py*8)+'deg)';
+      });
+      s.addEventListener('pointerleave', function(){
+        inner.style.transform = '';
+      });
+    });
+  }
+
+  /* reveal on scroll */
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(en){
+      if(en.isIntersecting){en.target.classList.add('in');io.unobserve(en.target);}
+    });
+  },{threshold:.16, rootMargin:'0px 0px -8% 0px'});
+  document.querySelectorAll('.reveal').forEach(function(el){io.observe(el);});
+
+  /* topbar nav smooth scroll for in-page anchors */
+  document.querySelectorAll('a[href^="#"]').forEach(function(a){
+    a.addEventListener('click', function(e){
+      var id = a.getAttribute('href');
+      if(id.length>1){
+        var el = document.querySelector(id);
+        if(el){e.preventDefault();el.scrollIntoView({behavior: reduce ? 'auto':'smooth', block:'start'});}
+      }
+    });
+  });
+})();
+</script>
+</body>
+</html>
