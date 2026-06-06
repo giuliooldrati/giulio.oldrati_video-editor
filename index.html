@@ -333,7 +333,7 @@ section[id]{position:relative;padding:clamp(90px,12vh,150px) 0;scroll-margin-top
   background:linear-gradient(160deg,#16161d,#0c0c10);
   display:grid;place-items:center;border:1px solid var(--line);
 }
-.portrait img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 16%}
+.portrait img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 16%}.slide-img{opacity:0;transition:opacity 1s ease-in-out}.slide-img.slide-active{opacity:1}
 .portrait::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.34) 0%,transparent 24%,transparent 70%,rgba(0,0,0,.5) 100%);pointer-events:none}
 .portrait .frame-tag{position:absolute;top:16px;left:16px;z-index:2;font-family:var(--font-display);font-size:16px;letter-spacing:.16em;color:var(--accent-2);display:flex;align-items:center;gap:8px}
 .portrait .frame-tag .rec{width:9px;height:9px;border-radius:50%;background:var(--accent-2);box-shadow:0 0 10px var(--accent-2);animation:rec 1.4s steps(1) infinite}
@@ -533,7 +533,8 @@ Montaggio, produzione e restauro video.</p>
 
     <div class="about">
       <div class="portrait reveal">
-        <img src="assets/giulio-portrait.jpg" alt="Ritratto di Giulio Oldrati con cuffie in studio" />
+        <img class="slide-img slide-active" src="assets/giulio-portrait.jpg" alt="Ritratto di Giulio Oldrati con cuffie in studio" />
+        <img class="slide-img" src="assets/giulio-set.jpg" alt="Giulio Oldrati sul set" />
         <span class="frame-tag"><span class="rec"></span> REC</span>
         <span class="frame-tag2">
 </span>
@@ -679,6 +680,18 @@ Montaggio, produzione e restauro video.</p>
       }
     });
   });
+})();
+</script>
+<script>
+(function(){
+  var imgs = document.querySelectorAll('.portrait .slide-img');
+  if(imgs.length < 2) return;
+  var current = 0;
+  setInterval(function(){
+    imgs[current].classList.remove('slide-active');
+    current = (current + 1) % imgs.length;
+    imgs[current].classList.add('slide-active');
+  }, 5000);
 })();
 </script>
 </body>
